@@ -339,7 +339,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/VaibhavBhagat665/insuremate-ai-agent/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/VaibhavBhagat665/insuremate-ai-agent/discussions)
-- **Email**: [vaibhavbhagat665@gmail.com](mailto:vaibhavbhagat665@gmail.com)
+- **Email**: [vaibhavbhagat7461@gmail.com](mailto:vaibhavbhagat7461@gmail.com)
 
 ---
 
@@ -350,3 +350,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 Made with ❤️ by [Vaibhav Bhagat](https://github.com/VaibhavBhagat665)
 
 </div>
+
