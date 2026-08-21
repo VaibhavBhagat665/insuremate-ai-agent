@@ -470,6 +470,8 @@ async def serve_frontend():
 async def startup_event():
     logger.info("Starting InsureMate AI Agent...")
     validate_config()
+    # Pre-warm services in background
+    asyncio.create_task(pre_warm_services())
 
 # Shutdown event
 @app.on_event("shutdown")
