@@ -88,11 +88,10 @@ class LLMService:
         self.stats_lock = threading.Lock()
         
         if not self.api_key:
-            logger.error(f"{self.provider.upper()} API key not configured")
-            raise ValueError(f"{self.provider.upper()} API key is required")
+            logger.warning(f"{self.provider.upper()} API key not configured — LLM calls will use fallback answers")
         
         self._local = threading.local()
-        logger.info(f"LLM service initialized with {self.provider}: {self.model} (Always Answer Mode)")
+        logger.info(f"LLM service initialized with {self.provider}: {self.model}")
     
     def _get_http_client(self):
         """Get thread-local HTTP client with extended timeout"""
@@ -221,6 +220,7 @@ HELPFUL ANSWER (always provide a complete response):"""
         
         # Remove AI response patterns but keep all content
         patterns_to_remove = [
+            r'<think>[\s\S]*?</think>\s*',
             r'^(answer:|response:|helpful answer:)\s*',
             r'^\s*["\']',
             r'["\']?\s*$'
@@ -248,6 +248,11 @@ HELPFUL ANSWER (always provide a complete response):"""
         """Make API call with guaranteed response"""
         self._update_stats('total_requests')
         
+        if not self.api_key:
+            logger.info("No API key configured, bypassing API calls.")
+            self._update_stats('failed_requests')
+            return self._generate_fallback_answer(query)
+            
         # Try primary provider
         try:
             response = self._call_api_with_rate_limiting(
@@ -322,7 +327,7 @@ HELPFUL ANSWER (always provide a complete response):"""
         }
         
         headers = {
-            "Authorization": "Bearer ",
+            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
         

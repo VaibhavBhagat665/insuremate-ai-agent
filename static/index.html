@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsureMate AI — Intelligent Document Analysis</title>
+    <meta name="description" content="Upload your documents and get AI-powered instant answers. InsureMate AI processes PDFs, DOCX, and TXT files with advanced RAG technology.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-canvas" id="bgCanvas"></div>
+    <div class="noise-overlay"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-brand">
+            <div class="brand-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <path d="M14 2L26 8V20L14 26L2 20V8L14 2Z" stroke="url(#grad1)" stroke-width="2" fill="none"/>
+                    <path d="M14 6L22 10V18L14 22L6 18V10L14 6Z" fill="url(#grad1)" opacity="0.3"/>
+                    <circle cx="14" cy="14" r="3" fill="url(#grad1)"/>
+                    <defs>
+                        <linearGradient id="grad1" x1="0" y1="0" x2="28" y2="28">
+                            <stop offset="0%" stop-color="#a855f7"/>
+                            <stop offset="50%" stop-color="#06b6d4"/>
+                            <stop offset="100%" stop-color="#ec4899"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <span class="brand-text">InsureMate<span class="brand-ai">AI</span></span>
+        </div>
+        <div class="nav-status" id="navStatus">
+            <div class="status-dot"></div>
+            <span>System Ready</span>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Hero Section -->
+        <section class="hero" id="hero">
+            <div class="hero-badge">
+                <span class="badge-pulse"></span>
+                <span>Powered by RAG + LLM</span>
+            </div>
+            <h1 class="hero-title">
+                <span class="title-line">Ask anything about</span>
+                <span class="title-gradient">your documents.</span>
+            </h1>
+            <p class="hero-subtitle">
+                Upload PDFs, DOCX, or TXT files and get instant AI-powered answers.
+                Built with hybrid search, semantic embeddings, and multi-provider LLM fallbacks.
+            </p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-value">< 30s</span>
+                    <span class="stat-label">Response Time</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-value">20+</span>
+                    <span class="stat-label">Questions/Batch</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-value">3</span>
+                    <span class="stat-label">File Formats</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Upload + Query Section -->
+        <section class="workspace" id="workspace">
+            <!-- Step 1: Upload -->
+            <div class="workspace-card" id="uploadCard">
+                <div class="card-header">
+                    <div class="step-badge">01</div>
+                    <h2 class="card-title">Upload Document</h2>
+                    <p class="card-desc">Drag & drop or click to browse</p>
+                </div>
+                
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="fileInput" accept=".pdf,.docx,.txt" hidden>
+                    <div class="upload-content" id="uploadContent">
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <path d="M24 4L24 32" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                <path d="M16 12L24 4L32 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M8 28V38C8 40.2 9.8 42 12 42H36C38.2 42 40 40.2 40 38V28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <p class="upload-text">Drop your file here or <span class="upload-link">browse</span></p>
+                        <p class="upload-hint">Supports PDF, DOCX, TXT — Max 500MB</p>
+                    </div>
+                    <div class="upload-success" id="uploadSuccess" style="display: none;">
+                        <div class="file-preview">
+                            <div class="file-icon" id="fileIcon">📄</div>
+                            <div class="file-info">
+                                <span class="file-name" id="fileName">document.pdf</span>
+                                <span class="file-size" id="fileSize">2.4 MB</span>
+                            </div>
+                            <button class="file-remove" id="fileRemove" title="Remove file">
+                                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                                    <path d="M4 4L14 14M14 4L4 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Questions -->
+            <div class="workspace-card" id="questionsCard">
+                <div class="card-header">
+                    <div class="step-badge">02</div>
+                    <h2 class="card-title">Ask Questions</h2>
+                    <p class="card-desc">Add up to 20 questions about your document</p>
+                </div>
+
+                <div class="questions-container">
+                    <div class="question-input-wrapper">
+                        <input 
+                            type="text" 
+                            id="questionInput" 
+                            class="question-input" 
+                            placeholder="Type your question and press Enter..."
+                            maxlength="500"
+                            autocomplete="off"
+                        >
+                        <button class="question-add-btn" id="addQuestionBtn" title="Add question">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="questions-list" id="questionsList">
+                        <!-- Questions chips appear here -->
+                    </div>
+                    
+                    <div class="questions-footer" id="questionsFooter" style="display: none;">
+                        <span class="question-count" id="questionCount">0/20 questions</span>
+                        <button class="clear-all-btn" id="clearAllBtn">Clear all</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="submit-section" id="submitSection">
+                <button class="submit-btn" id="submitBtn" disabled>
+                    <span class="submit-text">Analyze Document</span>
+                    <span class="submit-icon">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 10H16M12 6L16 10L12 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>
+                </button>
+                <p class="submit-hint">Your file will be processed securely and not stored permanently</p>
+            </div>
+        </section>
+
+        <!-- Processing Section -->
+        <section class="processing-section" id="processingSection" style="display: none;">
+            <div class="processing-card">
+                <div class="processing-visual">
+                    <div class="orbit-container">
+                        <div class="orbit orbit-1"></div>
+                        <div class="orbit orbit-2"></div>
+                        <div class="orbit orbit-3"></div>
+                        <div class="core-dot"></div>
+                    </div>
+                </div>
+                <h3 class="processing-title" id="processingTitle">Processing your document...</h3>
+                <p class="processing-subtitle" id="processingSubtitle">Extracting text and generating embeddings</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="processing-steps">
+                    <div class="proc-step active" id="step1">
+                        <div class="proc-step-dot"></div>
+                        <span>Parsing document</span>
+                    </div>
+                    <div class="proc-step" id="step2">
+                        <div class="proc-step-dot"></div>
+                        <span>Building embeddings</span>
+                    </div>
+                    <div class="proc-step" id="step3">
+                        <div class="proc-step-dot"></div>
+                        <span>Processing questions</span>
+                    </div>
+                    <div class="proc-step" id="step4">
+                        <div class="proc-step-dot"></div>
+                        <span>Generating answers</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <div class="results-header">
+                <div>
+                    <h2 class="results-title">Analysis Complete</h2>
+                    <p class="results-meta" id="resultsMeta">5 answers · 2.4s · document.pdf</p>
+                </div>
+                <button class="new-query-btn" id="newQueryBtn">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <path d="M9 3V15M3 9H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    New Analysis
+                </button>
+            </div>
+            
+            <div class="results-list" id="resultsList">
+                <!-- Answer cards appear here dynamically -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Built with FastAPI + Sentence Transformers + RAG · <span class="footer-highlight">InsureMate AI Agent</span></p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
