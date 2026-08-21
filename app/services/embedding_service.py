@@ -9,8 +9,12 @@ import time
 import hashlib
 import pickle
 import gzip
+import torch
 from sklearn.metrics.pairwise import cosine_similarity
 from app.core.config import settings
+
+# Limit PyTorch threads to save memory on free tiers
+torch.set_num_threads(1)
 
 logger = logging.getLogger(__name__)
 
