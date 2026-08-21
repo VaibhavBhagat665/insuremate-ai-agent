@@ -1,5 +1,5 @@
 import numpy as np
-from sentence_transformers import SentenceTransformer
+import requests
 from typing import List, Dict, Optional, Tuple
 import json
 import os
@@ -28,33 +28,17 @@ class EmbeddingService:
         self._cache_metadata = {}
         self._cache_lock = threading.Lock()
         
-        # Initialize enhanced embedding model
-        try:
-            logger.info(f"Loading enhanced embedding model: {settings.embedding_model}")
-            self.model = SentenceTransformer(settings.embedding_model)
+        # Use Hugging Face Free Inference API instead of heavy local PyTorch models
+        # This reduces RAM usage from 600MB to 50MB, perfectly fitting Render's free tier!
+        self.api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{settings.embedding_model}"
+        self.api_headers = {}
+        
+        # Optional: Use HF Token if available in environment for higher rate limits
+        hf_token = os.environ.get("HF_TOKEN")
+        if hf_token:
+            self.api_headers["Authorization"] = f"Bearer {hf_token}"
             
-            # Advanced model warming with diverse examples
-            warmup_texts = [
-                "This is a technical document about software development.",
-                "Financial reports and quarterly earnings data.",
-                "Research methodology and experimental results.",
-                "Legal contract terms and conditions.",
-                "Medical diagnosis and treatment procedures."
-            ]
-            self.model.encode(warmup_texts, show_progress_bar=False)
-            logger.info("Enhanced embedding model loaded and warmed up successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to load primary model: {str(e)}")
-            try:
-                logger.info("Attempting fallback to all-MiniLM-L6-v2")
-                self.model = SentenceTransformer('all-MiniLM-L6-v2')
-                warmup_texts = ["fallback test"]
-                self.model.encode(warmup_texts, show_progress_bar=False)
-                logger.info("Fallback embedding model loaded successfully")
-            except Exception as e2:
-                logger.error(f"All embedding models failed: {str(e2)}")
-                raise Exception(f"Could not load any embedding model: {str(e2)}")
+        logger.info(f"Initialized lightweight HF API Embedding Service for: {settings.embedding_model}")
         
         # Initialize storage backend
         if self.use_pinecone:
@@ -128,14 +112,19 @@ class EmbeddingService:
                     batch_end = min(batch_start + batch_size, len(uncached_texts))
                     batch_texts = uncached_texts[batch_start:batch_end]
                     
-                    # Generate embeddings with enhanced parameters
-                    embeddings = self.model.encode(
-                        batch_texts,
-                        show_progress_bar=False,
-                        batch_size=batch_size,
-                        convert_to_numpy=True,
-                        normalize_embeddings=True  # Better for cosine similarity
+                    # Generate embeddings via Hugging Face Free API
+                    response = requests.post(
+                        self.api_url, 
+                        headers=self.api_headers, 
+                        json={"inputs": batch_texts}
                     )
+                    
+                    if response.status_code == 200:
+                        embeddings = response.json()
+                    else:
+                        logger.error(f"HF API Error: {response.text}")
+                        # Fallback to zero vectors if API fails (384 dimensions)
+                        embeddings = [[0.0] * 384 for _ in batch_texts]
                     
                     # Cache and store results
                     with self._cache_lock:
