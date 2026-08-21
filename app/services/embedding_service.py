@@ -1,5 +1,4 @@
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Optional, Tuple
 import json
 import os
@@ -9,12 +8,8 @@ import time
 import hashlib
 import pickle
 import gzip
-import torch
 from sklearn.metrics.pairwise import cosine_similarity
 from app.core.config import settings
-
-# Limit PyTorch threads to save memory on free tiers
-torch.set_num_threads(1)
 
 logger = logging.getLogger(__name__)
 
@@ -32,39 +27,23 @@ class EmbeddingService:
         self._cache_metadata = {}
         self._cache_lock = threading.Lock()
         
-        # Initialize enhanced embedding model
-        try:
-            logger.info(f"Loading enhanced embedding model: {settings.embedding_model}")
-            self.model = SentenceTransformer(settings.embedding_model)
-            
-            # Advanced model warming with diverse examples
-            warmup_texts = [
-                "This is a technical document about software development.",
-                "Financial reports and quarterly earnings data.",
-                "Research methodology and experimental results.",
-                "Legal contract terms and conditions.",
-                "Medical diagnosis and treatment procedures."
-            ]
-            self.model.encode(warmup_texts, show_progress_bar=False)
-            logger.info("Enhanced embedding model loaded and warmed up successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to load primary model: {str(e)}")
-            try:
-                logger.info("Attempting fallback to all-MiniLM-L6-v2")
-                self.model = SentenceTransformer('all-MiniLM-L6-v2')
-                warmup_texts = ["fallback test"]
-                self.model.encode(warmup_texts, show_progress_bar=False)
-                logger.info("Fallback embedding model loaded successfully")
-            except Exception as e2:
-                logger.error(f"All embedding models failed: {str(e2)}")
-                raise Exception(f"Could not load any embedding model: {str(e2)}")
+        self.model = None
         
         # Initialize storage backend
         if self.use_pinecone:
             self._init_pinecone()
         else:
             self._init_enhanced_local_storage()
+
+    def _get_model(self):
+        """Lazy load the model to save memory"""
+        if self.model is None:
+            import torch
+            from sentence_transformers import SentenceTransformer
+            torch.set_num_threads(1)
+            logger.info(f"Loading enhanced embedding model: {settings.embedding_model}")
+            self.model = SentenceTransformer(settings.embedding_model)
+        return self.model
     
     def _init_pinecone(self):
         """Initialize Pinecone with enhanced configuration"""
@@ -133,7 +112,7 @@ class EmbeddingService:
                     batch_texts = uncached_texts[batch_start:batch_end]
                     
                     # Generate embeddings with enhanced parameters
-                    embeddings = self.model.encode(
+                    embeddings = self._get_model().encode(
                         batch_texts,
                         show_progress_bar=False,
                         batch_size=batch_size,
