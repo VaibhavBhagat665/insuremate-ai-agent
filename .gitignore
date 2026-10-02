@@ -63,3 +63,14 @@ cache/
 cloudbuild.yaml
 doc_cache/
 *_cache/
+
+# Temporary and test files
+lol
+lol.cpp
+lol.exe
+lol.o
+output.txt
+*.exe
+*.o
+*.class
+sol.java
