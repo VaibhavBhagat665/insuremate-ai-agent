@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     
     # First Fallback - Groq
     groq_api_key: Optional[str] = None
-    groq_model: Optional[str] = "qwen/qwen3.6-27b"
+    groq_model: Optional[str] = "llama-3.1-70b-versatile"
     groq_base_url: Optional[str] = "https://api.groq.com/openai/v1/chat/completions"
     groq_retry_attempts: Optional[int] = 2
     groq_retry_delay: Optional[float] = 1.0

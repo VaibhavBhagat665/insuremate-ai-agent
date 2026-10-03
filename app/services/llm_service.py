@@ -179,35 +179,36 @@ class LLMService:
             return self._generate_fallback_answer(query)
     
     def _format_context_or_fallback(self, chunks: List[str], query: str) -> str:
-        """Format context or indicate no context available"""
+        """Format context - document chunks should ALWAYS be provided"""
         if not chunks or not any(chunk.strip() for chunk in chunks):
-            return f"[NO DOCUMENT CONTEXT - Answer based on knowledge about: {query}]"
+            logger.warning(f"No context chunks provided for query: {query[:50]}...")
+            return "[ERROR: No document context was provided. This should not happen.]"
         
         # Use all available chunks
         valid_chunks = [chunk.strip() for chunk in chunks if chunk.strip()]
-        full_context = '\n\n---CHUNK---\n'.join(valid_chunks)
+        full_context = '\n\n---DOCUMENT SECTION---\n'.join(valid_chunks)
         
         logger.info(f"Using context: {len(full_context)} characters from {len(valid_chunks)} chunks")
         return full_context
     
     def _create_always_answer_prompt(self, query: str, context: str) -> str:
         """Create prompt that guarantees a relevant answer"""
-        prompt = f"""You are a helpful AI assistant. ALWAYS provide a useful, relevant answer to the question.
+        prompt = f"""You are a document analysis AI. Answer the question using ONLY the information from the provided document context below.
 
-INSTRUCTIONS:
-- If document context is provided, use it to answer comprehensively
-- If no document context is available, use your knowledge to provide accurate information
-- NEVER say "information not found" or "not available in document"
-- Always give a direct, helpful answer
-- Be specific and detailed
-- If unsure, provide the most likely accurate information with appropriate context
+CRITICAL INSTRUCTIONS:
+- You MUST base your answer on the CONTEXT provided below
+- Read the CONTEXT carefully and extract relevant information
+- Answer directly and comprehensively using facts from the CONTEXT
+- If the CONTEXT doesn't contain the answer, say "The document doesn't contain information about this"
+- Do NOT use your general knowledge - ONLY use what's in the CONTEXT
+- Quote or reference specific parts of the document when possible
 
-CONTEXT:
+DOCUMENT CONTEXT:
 {context}
 
 QUESTION: {query}
 
-HELPFUL ANSWER (always provide a complete response):"""
+ANSWER (based strictly on the document context above):"""
         
         return prompt
     

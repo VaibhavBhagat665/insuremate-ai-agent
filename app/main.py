@@ -99,12 +99,17 @@ def process_single_question_sync(question: str, doc_id: str, question_num: int) 
         
         context_chunks = [result['text'] for result in search_results]
         
-        # CRITICAL FIX: If RAG returned nothing, use the full document text as context
-        if not context_chunks and doc_id in _document_text_cache:
+        # CRITICAL FIX: If RAG returned nothing OR too few results, use the full document text as context
+        if len(context_chunks) < 2 and doc_id in _document_text_cache:
             full_text = _document_text_cache[doc_id]
-            # Truncate to ~8000 chars to stay within LLM context limits
-            context_chunks = [full_text[:8000]]
-            logger.info(f"RAG returned 0 results, using full document text ({len(full_text)} chars) as fallback context")
+            # Truncate to ~10000 chars to stay within LLM context limits
+            context_chunks = [full_text[:10000]]
+            logger.info(f"RAG returned {len(search_results)} results, using full document text ({len(full_text)} chars) as fallback context")
+        
+        # Ensure we always have some context
+        if not context_chunks:
+            logger.error(f"No context available for question {question_num}")
+            return "Unable to answer this question - document content not available."
         
         # Generate answer
         answer = llm_service.generate_answer(question, context_chunks)
