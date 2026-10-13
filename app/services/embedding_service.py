@@ -112,19 +112,28 @@ class EmbeddingService:
                     batch_end = min(batch_start + batch_size, len(uncached_texts))
                     batch_texts = uncached_texts[batch_start:batch_end]
                     
-                    # Generate embeddings via Hugging Face Free API
-                    response = requests.post(
-                        self.api_url, 
-                        headers=self.api_headers, 
-                        json={"inputs": batch_texts}
-                    )
+                    # Try HuggingFace API first, then fall back to local TF-IDF
+                    embeddings = None
+                    try:
+                        response = requests.post(
+                            self.api_url, 
+                            headers=self.api_headers, 
+                            json={"inputs": batch_texts},
+                            timeout=10
+                        )
+                        
+                        if response.status_code == 200:
+                            embeddings = response.json()
+                            logger.info(f"HF API embeddings generated successfully")
+                        else:
+                            logger.warning(f"HF API Error: {response.status_code} - {response.text[:200]}")
+                    except Exception as api_error:
+                        logger.warning(f"HF API call failed: {str(api_error)}")
                     
-                    if response.status_code == 200:
-                        embeddings = response.json()
-                    else:
-                        logger.error(f"HF API Error: {response.text}")
-                        # Fallback to zero vectors if API fails (384 dimensions)
-                        embeddings = [[0.0] * 384 for _ in batch_texts]
+                    # Fallback to local TF-IDF based embeddings if API failed
+                    if embeddings is None:
+                        logger.info("Using local TF-IDF fallback embeddings")
+                        embeddings = self._generate_tfidf_embeddings(batch_texts)
                     
                     # Cache and store results
                     with self._cache_lock:
@@ -150,8 +159,73 @@ class EmbeddingService:
                 
         except Exception as e:
             logger.error(f"Enhanced embedding generation failed: {str(e)}")
-            # Return fallback embeddings
-            return [[0.0] * settings.embedding_dimension for _ in texts]
+            # Final fallback - TF-IDF embeddings
+            logger.info("Using TF-IDF fallback for all texts")
+            return self._generate_tfidf_embeddings(texts)
+    
+    def _generate_tfidf_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Generate TF-IDF based embeddings as a local fallback"""
+        try:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            
+            # Use TF-IDF to create embeddings
+            vectorizer = TfidfVectorizer(max_features=384, ngram_range=(1, 2))
+            
+            # Need at least 2 texts for fit_transform
+            if len(texts) == 1:
+                texts_for_fit = texts + [""]  # Add empty string
+                tfidf_matrix = vectorizer.fit_transform(texts_for_fit)
+                embeddings = tfidf_matrix.toarray()[0:1].tolist()  # Only return first
+            else:
+                tfidf_matrix = vectorizer.fit_transform(texts)
+                embeddings = tfidf_matrix.toarray().tolist()
+            
+            # Pad or trim to 384 dimensions
+            processed_embeddings = []
+            for embedding in embeddings:
+                if len(embedding) < 384:
+                    # Pad with zeros
+                    embedding.extend([0.0] * (384 - len(embedding)))
+                elif len(embedding) > 384:
+                    # Trim
+                    embedding = embedding[:384]
+                processed_embeddings.append(embedding)
+            
+            logger.info(f"Generated {len(processed_embeddings)} TF-IDF embeddings")
+            return processed_embeddings
+            
+        except Exception as e:
+            logger.error(f"TF-IDF embedding generation failed: {str(e)}")
+            # Ultimate fallback - simple word count vectors
+            return self._generate_simple_embeddings(texts)
+    
+    def _generate_simple_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Generate simple word-based embeddings as ultimate fallback"""
+        embeddings = []
+        
+        for text in texts:
+            # Create a simple embedding based on word characteristics
+            words = text.lower().split()
+            
+            # Features: [word_count, avg_word_length, digit_count, alpha_count, ...]
+            embedding = [0.0] * 384
+            
+            if words:
+                embedding[0] = min(len(words) / 100.0, 1.0)  # Normalized word count
+                embedding[1] = sum(len(w) for w in words) / len(words) / 20.0  # Avg word length
+                embedding[2] = sum(1 for c in text if c.isdigit()) / max(len(text), 1)  # Digit ratio
+                embedding[3] = sum(1 for c in text if c.isalpha()) / max(len(text), 1)  # Alpha ratio
+                
+                # Add word hashes for uniqueness
+                for i, word in enumerate(words[:50]):  # First 50 words
+                    hash_val = hash(word) % 100 / 100.0
+                    if i * 6 + 4 < 384:
+                        embedding[i * 6 + 4] = hash_val
+            
+            embeddings.append(embedding)
+        
+        logger.info(f"Generated {len(embeddings)} simple fallback embeddings")
+        return embeddings
     
     def _manage_cache(self):
         """Intelligent cache management based on usage and time"""
